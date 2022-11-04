@@ -122,11 +122,11 @@ namespace Sample.MySql
                             .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
                     });
                     o.AddDefaultDataSource("ds0",
-                        "server=127.0.0.1;port=3306;database=dbdbd0;userid=root;password=root;");
+                        "server=192.168.192.129;port=3306;database=dbdbd0;userid=root;password=123456;");
                     o.AddExtraDataSource(sp => new Dictionary<string, string>()
                     {
-                        { "ds1", "server=127.0.0.1;port=3306;database=dbdbd1;userid=root;password=root;" },
-                        { "ds2", "server=127.0.0.1;port=3306;database=dbdbd2;userid=root;password=root;" }
+                        { "ds1", "server=192.168.192.129;port=3306;database=dbdbd1;userid=root;password=123456;" },
+                        { "ds2", "server=192.168.192.129;port=3306;database=dbdbd2;userid=root;password=123456;" }
                     });
                     o.UseShardingMigrationConfigure(b =>
                     {
