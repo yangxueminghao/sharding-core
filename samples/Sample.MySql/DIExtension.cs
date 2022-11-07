@@ -52,6 +52,12 @@ namespace Sample.MySql
                     virtualDbContext.SaveChanges();
 
                 }
+                virtualDbContext.Set<SysTest>().Add(new SysTest
+                {
+                    Id = "asdgsd",
+                    UserId = "fgh"
+                });
+                virtualDbContext.SaveChanges();
             }
             
             // using (var scope=app.ApplicationServices.CreateScope())
