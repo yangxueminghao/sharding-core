@@ -13,6 +13,8 @@ using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging.Abstractions;
 using ShardingCore.Core.RuntimeContexts;
 using ShardingCore.Core.VirtualRoutes.TableRoutes.RouteTails;
 using ShardingCore.Extensions;
@@ -56,15 +58,21 @@ namespace Sample.SqlServer
                         builder.UseLoggerFactory(loggerFactory).UseUnionAllMerge<DefaultShardingDbContext>();
                     });
                     op.AddDefaultDataSource("A",
-                      "Data Source=localhost;Initial Catalog=ShardingCoreDBXA;Integrated Security=True;"
+                      "Data Source=localhost;Initial Catalog=ShardingCoreDBXA;Integrated Security=True;TrustServerCertificate=True;"
                      );
+                    op.UseShardingMigrationConfigure(o =>
+                    {
+                        o.ReplaceService<IMigrationsSqlGenerator, ShardingSqlServerMigrationsSqlGenerator>();
+                    });
+
+
                 }).AddServiceConfigure(s =>
                 {
                     s.AddSingleton<ILoggerFactory>(sp => LoggerFactory.Create(builder =>
                     {
                         builder.AddConsole();
                     }));
-                }).AddShardingCore();
+                }).ReplaceService<ILoggerFactory,NullLoggerFactory>().AddShardingCore();
             //services.AddShardingDbContext<DefaultShardingDbContext1>(
             //        (conn, o) =>
             //            o.UseSqlServer(conn).UseLoggerFactory(efLogger)
@@ -121,9 +129,7 @@ namespace Sample.SqlServer
             using (var serviceScope = app.ApplicationServices.CreateScope())
             {
                 var defaultShardingDbContext = serviceScope.ServiceProvider.GetService<DefaultShardingDbContext>();
-              
-                var migrator = defaultShardingDbContext.GetService<IMigrator>();
-                migrator.Migrate("InitialCreate");
+                defaultShardingDbContext.Database.Migrate();
             }
             app.ApplicationServices.UseAutoTryCompensateTable();
 

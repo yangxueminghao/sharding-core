@@ -27,11 +27,12 @@ namespace ShardingCore.VirtualRoutes.Years
         /// <returns></returns>
         protected override List<string> CalcTailsOnStart()
         {
-            var beginTime = GetBeginTime().Date;
+            var beginTime = new DateTime(GetBeginTime().Year,1,1);
          
             var tails=new List<string>();
             //提前创建表
-            var nowTimeStamp = DateTime.Now.Date;
+            var now = DateTime.Now;
+            var nowTimeStamp = new DateTime(now.Year,1,1);
             if (beginTime > nowTimeStamp)
                 throw new ArgumentException("begin time error");
             var currentTimeStamp = beginTime;

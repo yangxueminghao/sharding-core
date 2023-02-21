@@ -17,10 +17,7 @@ namespace ShardingCore.Core.Internal.Visitors.Querys
     * @Date: Saturday, 20 February 2021 11:14:35
     * @Email: 326308290@qq.com
     */
-#if !NETCOREAPP2_0 && !NETSTANDARD2_0 && !NETCOREAPP3_0 && !NETSTANDARD2_1 && !NET5_0 && !NET6_0
-    error
-#endif
-#if NETCOREAPP2_0 || NETCOREAPP3_0 || NETSTANDARD2_0
+#if EFCORE2 || EFCORE3
     /// <summary>
     /// 获取分表类型
     /// </summary>
@@ -117,7 +114,7 @@ namespace ShardingCore.Core.Internal.Visitors.Querys
     }
 #endif
 
-#if NET5_0 || NETSTANDARD2_1 || NET6_0
+#if EFCORE5|| EFCORE6 || EFCORE7
     /// <summary>
     /// 获取分表类型
     /// </summary>
@@ -140,7 +137,11 @@ namespace ShardingCore.Core.Internal.Visitors.Querys
         {
             if (node is QueryRootExpression queryRootExpression)
             {
-                _shardingEntities.Add(queryRootExpression.EntityType.ClrType);
+#if EFCORE7
+                _shardingEntities.Add(queryRootExpression.ElementType);
+#else   
+                _shardingEntities.Add(queryRootExpression.EntityType.ClrType);  
+#endif
             }
             return base.VisitExtension(node);
         }
@@ -213,140 +214,5 @@ namespace ShardingCore.Core.Internal.Visitors.Querys
         }
     }
 #endif
-    // internal class ShardingEntitiesVisitor : ExpressionVisitor
-    // {
-    //     private readonly IVirtualTableManager _virtualTableManager;
-    //     private readonly ISet<Type> _shardingEntities = new HashSet<Type>();
-    //
-    //     public ShardingEntitiesVisitor(IVirtualTableManager virtualTableManager)
-    //     {
-    //         _virtualTableManager = virtualTableManager;
-    //     }
-    //
-    //     public ISet<Type> GetShardingEntities()
-    //     {
-    //         return _shardingEntities;
-    //     }
-    //
-    //     private bool IsShardingKey(Expression expression, out Type shardingEntity)
-    //     {
-    //         if (expression is MemberExpression member
-    //             && _virtualTableManager.IsShardingKey(member.Expression.Type, member.Member.Name))
-    //         {
-    //             shardingEntity = member.Expression.Type;
-    //             return true;
-    //         }
-    //
-    //         shardingEntity = null;
-    //         return false;
-    //     }
-    //
-    //     private bool IsMethodShardingKey(MethodCallExpression methodCallExpression, out Type shardingEntity)
-    //     {
-    //         if (methodCallExpression.Arguments.IsNotEmpty())
-    //         {
-    //             for (int i = 0; i < methodCallExpression.Arguments.Count; i++)
-    //             {
-    //                 if (methodCallExpression.Arguments[i] is MemberExpression member
-    //                     && _virtualTableManager.IsShardingKey(member.Expression.Type, member.Member.Name))
-    //                 {
-    //                     shardingEntity = member.Expression.Type;
-    //                     return true;
-    //                 }
-    //             }
-    //         }
-    //
-    //         shardingEntity = null;
-    //         return false;
-    //     }
-    //
-    //     protected override Expression VisitMethodCall(MethodCallExpression node)
-    //     {
-    //         var methodName = node.Method.Name;
-    //         switch (methodName)
-    //         {
-    //             case nameof(Queryable.Where):
-    //                 ResolveWhere(node);
-    //                 break;
-    //         }
-    //
-    //
-    //         return base.VisitMethodCall(node);
-    //     }
-    //
-    //     private void ResolveWhere(MethodCallExpression node)
-    //     {
-    //         if (node.Arguments[1] is UnaryExpression unaryExpression)
-    //         {
-    //             if (unaryExpression.Operand is LambdaExpression lambdaExpression)
-    //             {
-    //                 Resolve(lambdaExpression);
-    //             }
-    //         }
-    //     }
-    //
-    //
-    //     private void Resolve(Expression expression)
-    //     {
-    //         if (expression is LambdaExpression)
-    //         {
-    //             LambdaExpression lambda = expression as LambdaExpression;
-    //             expression = lambda.Body;
-    //             Resolve(expression);
-    //         }
-    //
-    //         if (expression is BinaryExpression binaryExpression) //解析二元运算符
-    //         {
-    //             ParseGetWhere(binaryExpression);
-    //         }
-    //
-    //         if (expression is UnaryExpression) //解析一元运算符
-    //         {
-    //             UnaryExpression unary = expression as UnaryExpression;
-    //             if (unary.Operand is MethodCallExpression methodCall1Expression)
-    //             {
-    //                 ResolveInFunc(methodCall1Expression, unary.NodeType != ExpressionType.Not);
-    //             }
-    //         }
-    //
-    //         if (expression is MethodCallExpression methodCallExpression) //解析扩展方法
-    //         {
-    //             ResolveInFunc(methodCallExpression, true);
-    //         }
-    //     }
-    //
-    //     private void ResolveInFunc(MethodCallExpression methodCallExpression, bool @in)
-    //     {
-    //         if (methodCallExpression.IsEnumerableContains(methodCallExpression.Method.Name) && IsMethodShardingKey(methodCallExpression, out var shardingEntity))
-    //         {
-    //             _shardingEntities.Add(shardingEntity);
-    //         }
-    //     }
-    //
-    //     private void ParseGetWhere(BinaryExpression binaryExpression)
-    //     {
-    //         //递归获取
-    //         if (binaryExpression.Left is BinaryExpression)
-    //             ParseGetWhere(binaryExpression.Left as BinaryExpression);
-    //         if (binaryExpression.Left is MethodCallExpression methodCallExpression)
-    //         {
-    //             Resolve(methodCallExpression);
-    //         }
-    //
-    //         if (binaryExpression.Left is UnaryExpression unaryExpression)
-    //             Resolve(unaryExpression);
-    //
-    //         if (binaryExpression.Right is BinaryExpression)
-    //             ParseGetWhere(binaryExpression.Right as BinaryExpression);
-    //
-    //         if (IsShardingKey(binaryExpression.Left, out var shardingEntity1))
-    //         {
-    //             _shardingEntities.Add(shardingEntity1);
-    //         }
-    //         else if (IsShardingKey(binaryExpression.Right, out var shardingEntity2))
-    //         {
-    //             _shardingEntities.Add(shardingEntity2);
-    //         }
-    //     }
-    // }
 }
+

@@ -26,6 +26,25 @@
 
 
 [中文文档Gitee](https://xuejm.gitee.io/sharding-core-doc/) | [English Document Gitee](https://xuejm.gitee.io/sharding-core-doc/en/)
+
+## 如何选择版本
+
+- shardingcore 最新版本.efcore版本.x.x
+
+- 版本号第一位是shardingcore的版本号使用最大的即可
+- 版本号第二位是efcore版本号使用对应的版本号即可
+- 最后两位版本号使用最大即可
+
+- efcore7使用shardingcore7.7.x.x，
+- efcore6使用shardingcore7.6.x.x，
+- efcore5使用shardingcore7.5.x.x，
+- efcore3使用shardingcore7.3.x.x，
+- efcore2使用shardingcore7.2.x.x
+
+
+## Abp.VNext、WTM 框架集成
+- [ShardingFrameWork](https://github.com/xuejmnet/ShardingWithFramework) demos
+
 ## 依赖
 
 
@@ -48,6 +67,7 @@ Release  | EF Core | .NET (Core)
 [6.7.0.0+](https://www.nuget.org/packages/ShardingCore)| 5.x     | net5 or netstandard2.1
 [6.7.0.0+](https://www.nuget.org/packages/ShardingCore)| 3.x     | netcoreapp3 or netstandard2.0
 [6.7.0.0+](https://www.nuget.org/packages/ShardingCore)| 2.x     | netcoreapp2
+
 
 
 ## 快速开始

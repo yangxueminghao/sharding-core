@@ -350,7 +350,7 @@ namespace ShardingCore.Sharding.ShardingDbContextExecutors
                 return;
             CurrentDbContextTransaction?.Commit();
         }
-#if !NETCOREAPP2_0
+#if !EFCORE2
         public async Task RollbackAsync(CancellationToken cancellationToken = new CancellationToken())
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -369,7 +369,7 @@ namespace ShardingCore.Sharding.ShardingDbContextExecutors
             if (CurrentDbContextTransaction != null)
                 await CurrentDbContextTransaction.CommitAsync(cancellationToken);
         }
-#if !NETCOREAPP3_0&&!NETSTANDARD2_0
+#if !EFCORE3&&!NETSTANDARD2_0
         public void CreateSavepoint(string name)
         {
             if (IsDefault)
@@ -428,14 +428,16 @@ namespace ShardingCore.Sharding.ShardingDbContextExecutors
             {
                 dataSourceDbContext.Value.Dispose();
             }
+            _dataSourceDbContexts.Clear();
         }
-#if !NETCOREAPP2_0
+#if !EFCORE2
         public async ValueTask DisposeAsync()
         {
             foreach (var dataSourceDbContext in _dataSourceDbContexts)
             {
                 await dataSourceDbContext.Value.DisposeAsync();
             }
+            _dataSourceDbContexts.Clear();
         }
 #endif
     }

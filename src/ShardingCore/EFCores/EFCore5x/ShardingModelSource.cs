@@ -1,4 +1,4 @@
-﻿#if NET5_0 || NETSTANDARD2_1
+﻿#if EFCORE5
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -12,22 +12,24 @@ using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 using Microsoft.Extensions.Caching.Memory;
 using ShardingCore.Core;
+using ShardingCore.Core.RuntimeContexts;
 using ShardingCore.Core.VirtualRoutes.TableRoutes.RouteTails.Abstractions;
 using ShardingCore.Exceptions;
 using ShardingCore.Sharding.Abstractions;
 
 namespace ShardingCore.EFCores
 {
-    public class ShardingModelSource : ModelSource, IShardingModelSource
+    public class ShardingModelSource : ModelSource
     {
-        private readonly object _syncObject = new object();
+        private readonly IShardingRuntimeContext _shardingRuntimeContext;
 
         /// <summary>
         ///     Creates a new <see cref="ModelSource" /> instance.
         /// </summary>
         /// <param name="dependencies"> The dependencies to use. </param>
-        public ShardingModelSource([NotNull] ModelSourceDependencies dependencies) : base(dependencies)
+        public ShardingModelSource([NotNull] ModelSourceDependencies dependencies,IShardingRuntimeContext shardingRuntimeContext) : base(dependencies)
         {
+            _shardingRuntimeContext = shardingRuntimeContext;
 
             Dependencies = dependencies;
         }
@@ -64,9 +66,7 @@ namespace ShardingCore.EFCores
             ModelDependencies modelDependencies)
         {
 
-            var priority = CacheItemPriority.High;
-            var size = 200;
-            var waitSeconds = 3;
+            CacheItemPriority? setPriority = null;
             if (context is IShardingTableDbContext shardingTableDbContext)
             {
                 if (shardingTableDbContext.RouteTail is null)
@@ -80,21 +80,21 @@ namespace ShardingCore.EFCores
                 }
                 else if (shardingTableDbContext.RouteTail is ISingleQueryRouteTail singleQueryRouteTail&& singleQueryRouteTail.IsShardingTableQuery())
                 {
-                    priority = CacheItemPriority.Normal;
+                    setPriority = CacheItemPriority.Normal;
                 }
             }
             var cache = Dependencies.MemoryCache;
             var cacheKey = Dependencies.ModelCacheKeyFactory.Create(context);
             if (!cache.TryGetValue(cacheKey, out IModel model))
             {
-                if (context is IShardingModelCacheOption shardingModelCacheOption)
-                {
-                    priority = shardingModelCacheOption.GetModelCachePriority();
-                    size = shardingModelCacheOption.GetModelCacheEntrySize();
-                    waitSeconds = shardingModelCacheOption.GetModelCacheLockObjectSeconds();
-                }
+                var modelCacheLockerProvider = _shardingRuntimeContext.GetModelCacheLockerProvider();
+
+                var priority = setPriority ?? modelCacheLockerProvider.GetCacheItemPriority();
+                var size = modelCacheLockerProvider.GetCacheEntrySize();
+                var waitSeconds = modelCacheLockerProvider.GetCacheModelLockObjectSeconds();
+                var cacheLockObject = modelCacheLockerProvider.GetCacheLockObject(cacheKey);
                 // Make sure OnModelCreating really only gets called once, since it may not be thread safe.
-                var acquire = Monitor.TryEnter(_syncObject, TimeSpan.FromSeconds(waitSeconds));
+                var acquire = Monitor.TryEnter(cacheLockObject, TimeSpan.FromSeconds(waitSeconds));
                 if (!acquire)
                 {
                     throw new ShardingCoreInvalidOperationException("cache model timeout");
@@ -109,39 +109,11 @@ namespace ShardingCore.EFCores
                 }
                 finally
                 {
-                    Monitor.Exit(_syncObject);
+                    Monitor.Exit(cacheLockObject);
                 }
             }
 
             return model;
-        }
-        public IModelCacheKeyFactory GetModelCacheKeyFactory()
-        {
-            return Dependencies.ModelCacheKeyFactory;
-        }
-
-        public object GetSyncObject()
-        {
-            return _syncObject;
-        }
-
-        public void Remove(object key)
-        {
-            // Make sure OnModelCreating really only gets called once, since it may not be thread safe.
-            var acquire = Monitor.TryEnter(_syncObject, TimeSpan.FromSeconds(3));
-            if (!acquire)
-            {
-                throw new ShardingCoreInvalidOperationException("cache model timeout");
-            }
-            try
-            {
-                var cache = Dependencies.MemoryCache;
-                cache.Remove(key);
-            }
-            finally
-            {
-                Monitor.Exit(_syncObject);
-            }
         }
     }
 }

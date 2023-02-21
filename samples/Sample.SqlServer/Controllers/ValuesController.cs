@@ -80,7 +80,7 @@ namespace Sample.SqlServer.Controllers
             var resultx112331tt1124 = await _defaultTableDbContext.Set<SysTest>().Take(2).Skip(2).ToListAsync();
             var resultx112331tt112 = await _defaultTableDbContext.Set<SysUserMod>().FirstOrDefaultAsync();
             var resultx112331tt2x1 = await _defaultTableDbContext.Set<SysTest>().OrderBy(o => o.Id).LastOrDefaultAsync();
-            var resultx112331tt2x1x = await _defaultTableDbContext.Set<SysTest>().OrderBy(o => o.Id).SingleOrDefaultAsync();
+            //var resultx112331tt2x1x = await _defaultTableDbContext.Set<SysTest>().OrderBy(o => o.Id).SingleOrDefaultAsync();
             var resultx112331tt2x = await _defaultTableDbContext.Set<SysTest>().OrderBy(o => o.Id).Skip(2).LastOrDefaultAsync();
             Console.WriteLine("--------------");
             var resultx112331tt2y = await _defaultTableDbContext.Set<SysTest>().OrderBy(o => o.Id).Skip(2).OrderByDescending(o => o.Id).FirstOrDefaultAsync();
@@ -146,7 +146,8 @@ namespace Sample.SqlServer.Controllers
 
 
             var unionUserIds = await _defaultTableDbContext.Set<SysUserMod>().Select(o => new UnionUserId() { UserId = o.Id })
-                .Union(_defaultTableDbContext.Set<SysUserSalary>().Select(o => new UnionUserId() { UserId = o.UserId })).UseUnionAllMerge().ToListAsync();
+                .Union(_defaultTableDbContext.Set<SysUserSalary>().Select(o => new UnionUserId() { UserId = o.UserId }))
+                .UseUnionAllMerge().ToListAsync();
 
 
 
@@ -176,7 +177,7 @@ namespace Sample.SqlServer.Controllers
            // var provider = queryable.Provider as EntityQueryProvider;
            // var compiler = provider.GetFieldValue("_queryCompiler") as ShardingQueryCompiler;
            // var shardingDbContext = compiler.GetFieldValue("_shardingDbContext") as IShardingDbContext;
-
+       
             Stopwatch sp = new Stopwatch();
             sp.Start();
             var shardingPageResultAsync = await _defaultTableDbContext.Set<SysUserMod>()
@@ -388,6 +389,33 @@ namespace Sample.SqlServer.Controllers
                     Tests=_defaultTableDbContext.Set<SysTest>().Where(o => o.Id == "2").ToList()
                 })
                 .FirstOrDefaultAsync();
+            return Ok();
+        }
+        [HttpGet]
+        public async Task<IActionResult> Get8()
+        
+        {
+            
+            
+            var resultx112331tt2 = await _defaultTableDbContext.Set<SysUserMod>().Where(o => o.Id == "3").FirstOrDefaultAsync();
+            var xx=await _defaultTableDbContext.Set<SysUserMod>().Where(o => o.Id == "3")
+                .ExecuteUpdateAsync(
+                 s => s.SetProperty(b => b.Name, b => b.Name + "1"));
+            var xx1 = await _defaultTableDbContext.Set<SysUserMod>().Where(o => o.Name == "name_3")
+                .ExecuteUpdateAsync(
+                    s => s.SetProperty(b => b.Age, b => b.Age + 1));
+         
+
+            return Ok();
+        }
+        [HttpGet]
+        public async Task<IActionResult> Get9()
+
+        {
+
+            var resultx112331tt2 = await _defaultTableDbContext.Set<SysTest>().FromSqlRaw("select *from systest where id='3'").FirstOrDefaultAsync();
+            
+
             return Ok();
         }
 

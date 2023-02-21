@@ -11,6 +11,9 @@ using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Storage;
 using ShardingCore.Core;
 using ShardingCore.Core.RuntimeContexts;
 
@@ -20,70 +23,91 @@ namespace ShardingCore.EFCores
     /// <summary>
     /// 当前查询编译拦截
     /// </summary>
-    public class ShardingQueryCompiler : IQueryCompiler,IShardingDbContextAvailable
+    public class ShardingQueryCompiler : QueryCompiler,IShardingDbContextAvailable
     {
         private readonly IShardingDbContext _shardingDbContext;
         private readonly IShardingCompilerExecutor _shardingCompilerExecutor;
+//
+#if !EFCORE2
+        public ShardingQueryCompiler(IShardingRuntimeContext shardingRuntimeContext,IQueryContextFactory queryContextFactory, ICompiledQueryCache compiledQueryCache, ICompiledQueryCacheKeyGenerator compiledQueryCacheKeyGenerator, IDatabase database, IDiagnosticsLogger<DbLoggerCategory.Query> logger, ICurrentDbContext currentContext, IEvaluatableExpressionFilter evaluatableExpressionFilter, IModel model) 
+            : base(queryContextFactory, compiledQueryCache, compiledQueryCacheKeyGenerator, database, logger, currentContext, evaluatableExpressionFilter, model)
+        {
+            _shardingDbContext = currentContext.Context as IShardingDbContext ??
+                                 throw new ShardingCoreException("db context operator is not IShardingDbContext");
+            _shardingCompilerExecutor = shardingRuntimeContext.GetShardingCompilerExecutor();
+        } 
+#endif
+#if EFCORE2
+        
 
-        public ShardingQueryCompiler(ICurrentDbContext currentContext,IShardingRuntimeContext shardingRuntimeContext)
+        public ShardingQueryCompiler(IShardingRuntimeContext shardingRuntimeContext,IQueryContextFactory queryContextFactory, ICompiledQueryCache compiledQueryCache, ICompiledQueryCacheKeyGenerator compiledQueryCacheKeyGenerator, IDatabase database, IDiagnosticsLogger<DbLoggerCategory.Query> logger, ICurrentDbContext currentContext, IQueryModelGenerator queryModelGenerator) 
+            : base(queryContextFactory, compiledQueryCache, compiledQueryCacheKeyGenerator, database, logger, currentContext, queryModelGenerator)
         {
             _shardingDbContext = currentContext.Context as IShardingDbContext ??
                                  throw new ShardingCoreException("db context operator is not IShardingDbContext");
             _shardingCompilerExecutor = shardingRuntimeContext.GetShardingCompilerExecutor();
         }
+#endif
+        // public ShardingQueryCompiler(IShardingRuntimeContext shardingRuntimeContext,ICurrentDbContext currentContext)
+        // {
+        //      _shardingDbContext = currentContext.Context as IShardingDbContext ??
+        //                           throw new ShardingCoreException("db context operator is not IShardingDbContext");
+        //      _shardingCompilerExecutor = shardingRuntimeContext.GetShardingCompilerExecutor();
+        //     
+        // }
 
-        public TResult Execute<TResult>(Expression query)
+        public override TResult Execute<TResult>(Expression query)
         {
             return _shardingCompilerExecutor.Execute<TResult>(_shardingDbContext, query);
         }
 
 
-#if !NETCOREAPP2_0
+#if !EFCORE2
 
-        public TResult ExecuteAsync<TResult>(Expression query, CancellationToken cancellationToken)
+        public override TResult ExecuteAsync<TResult>(Expression query, CancellationToken cancellationToken)
         {
             return _shardingCompilerExecutor.ExecuteAsync<TResult>(_shardingDbContext, query, cancellationToken);
         }
 
         [ExcludeFromCodeCoverage]
-        public Func<QueryContext, TResult> CreateCompiledQuery<TResult>(Expression query)
+        public override Func<QueryContext, TResult> CreateCompiledQuery<TResult>(Expression query)
         {
             throw new NotImplementedException();
         }
 
         [ExcludeFromCodeCoverage]
-        public Func<QueryContext, TResult> CreateCompiledAsyncQuery<TResult>(Expression query)
+        public override Func<QueryContext, TResult> CreateCompiledAsyncQuery<TResult>(Expression query)
         {
             throw new NotImplementedException();
         }
 
 #endif
 
-#if NETCOREAPP2_0
-        public IAsyncEnumerable<TResult> ExecuteAsync<TResult>(Expression query)
+#if EFCORE2
+        public override IAsyncEnumerable<TResult> ExecuteAsync<TResult>(Expression query)
         {
             return _shardingCompilerExecutor.ExecuteAsync<TResult>(_shardingDbContext, query);
         }
 
-        public Task<TResult> ExecuteAsync<TResult>(Expression query, CancellationToken cancellationToken)
+        public override Task<TResult> ExecuteAsync<TResult>(Expression query, CancellationToken cancellationToken)
         {
             return _shardingCompilerExecutor.ExecuteAsync<TResult>(_shardingDbContext, query, cancellationToken);
         }
         
         [ExcludeFromCodeCoverage]
-        public Func<QueryContext, TResult> CreateCompiledQuery<TResult>(Expression query)
+        public override Func<QueryContext, TResult> CreateCompiledQuery<TResult>(Expression query)
         {
             throw new NotImplementedException();
         }
         
         [ExcludeFromCodeCoverage]
-        public Func<QueryContext, IAsyncEnumerable<TResult>> CreateCompiledAsyncEnumerableQuery<TResult>(Expression query)
+        public override Func<QueryContext, IAsyncEnumerable<TResult>> CreateCompiledAsyncEnumerableQuery<TResult>(Expression query)
         {
             throw new NotImplementedException();
         }
         
         [ExcludeFromCodeCoverage]
-        public Func<QueryContext, Task<TResult>> CreateCompiledAsyncTaskQuery<TResult>(Expression query)
+        public override Func<QueryContext, Task<TResult>> CreateCompiledAsyncTaskQuery<TResult>(Expression query)
         {
             throw new NotImplementedException();
         }

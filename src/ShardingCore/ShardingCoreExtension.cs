@@ -17,7 +17,6 @@ using ShardingCore.Core.VirtualRoutes.DataSourceRoutes.RouteRuleEngine;
 using ShardingCore.Core.VirtualRoutes.TableRoutes.RouteTails.Abstractions;
 using ShardingCore.Core.VirtualRoutes.TableRoutes.RoutingRuleEngine;
 using ShardingCore.EFCores;
-using ShardingCore.EFCores.OptionsExtensions;
 using ShardingCore.Jobs;
 using ShardingCore.Sharding;
 using ShardingCore.Sharding.Abstractions;
@@ -33,6 +32,7 @@ using ShardingCore.Bootstrappers;
 using ShardingCore.Core.DbContextCreator;
 using ShardingCore.Core.DbContextOptionBuilderCreator;
 using ShardingCore.Core.DbContextTypeAwares;
+using ShardingCore.Core.ModelCacheLockerProviders;
 using ShardingCore.Core.QueryTrackers;
 using ShardingCore.Core.RuntimeContexts;
 using ShardingCore.Core.ShardingConfigurations.ConfigBuilders;
@@ -45,7 +45,6 @@ using ShardingCore.Core.VirtualRoutes.Abstractions;
 using ShardingCore.Core.VirtualRoutes.DataSourceRoutes;
 using ShardingCore.Core.VirtualRoutes.TableRoutes;
 using ShardingCore.DynamicDataSources;
-using ShardingCore.EFCores.ChangeTrackers;
 using ShardingCore.Exceptions;
 using ShardingCore.Extensions;
 using ShardingCore.Sharding.MergeContexts;
@@ -124,12 +123,11 @@ namespace ShardingCore
             shardingConfigOptions.ShardingMigrationConfigure?.Invoke(dbContextOptionsBuilder);
             var virtualDataSource = shardingRuntimeContext.GetVirtualDataSource();
             var connectionString = virtualDataSource.GetConnectionString(virtualDataSource.DefaultDataSourceName);
-            var contextOptionsBuilder = virtualDataSource.ConfigurationParams
+           virtualDataSource.ConfigurationParams
                 .UseDbContextOptionsBuilder(connectionString, dbContextOptionsBuilder)
-                .UseShardingMigrator()
-                .UseSharding<TShardingDbContext>(shardingRuntimeContext);
+                .UseSharding(shardingRuntimeContext);
 
-            virtualDataSource.ConfigurationParams.UseShellDbContextOptionBuilder(contextOptionsBuilder);
+            virtualDataSource.ConfigurationParams.UseShellDbContextOptionBuilder(dbContextOptionsBuilder);
             return dbContextOptionsBuilder;
         }
 
@@ -139,6 +137,7 @@ namespace ShardingCore
             services.TryAddSingleton<IDbContextTypeAware>(sp=>new DbContextTypeAware(typeof(TShardingDbContext)));
             services.TryAddSingleton<IShardingInitializer, ShardingInitializer>();
             services.TryAddSingleton<IShardingBootstrapper, ShardingBootstrapper>();
+            services.TryAddSingleton<IModelCacheLockerProvider, DefaultModelCacheLockerProvider>();
             services.TryAddSingleton<IDataSourceInitializer, DataSourceInitializer>();
             services.TryAddSingleton<ITableRouteManager, TableRouteManager>();
             services
@@ -210,19 +209,28 @@ namespace ShardingCore
             return services;
         }
 
-        public static DbContextOptionsBuilder UseSharding<TShardingDbContext>(
+#pragma warning disable EF1001
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="optionsBuilder"></param>
+        /// <param name="shardingRuntimeContext"></param>
+        /// <returns></returns>
+        public static DbContextOptionsBuilder UseSharding(
             this DbContextOptionsBuilder optionsBuilder, IShardingRuntimeContext shardingRuntimeContext)
-            where TShardingDbContext : DbContext, IShardingDbContext
         {
-            return optionsBuilder.UseShardingWrapMark().UseShardingOptions(shardingRuntimeContext)
-                .ReplaceService<IDbSetSource, ShardingDbSetSource>()
+            return optionsBuilder
+                .UseShardingWrapMark()
+                .UseShardingMigrator()
+                .UseShardingOptions(shardingRuntimeContext)
                 .ReplaceService<IQueryCompiler, ShardingQueryCompiler>()
+                .ReplaceService<IDbSetInitializer, ShardingDbSetInitializer>()
                 .ReplaceService<IChangeTrackerFactory, ShardingChangeTrackerFactory>()
-                .ReplaceService<IDbContextTransactionManager,
-                    ShardingRelationalTransactionManager<TShardingDbContext>>()
-                .ReplaceService<IRelationalTransactionFactory,
-                    ShardingRelationalTransactionFactory<TShardingDbContext>>();
+                .ReplaceService<IDbContextTransactionManager,ShardingRelationalTransactionManager>()
+                .ReplaceService<IStateManager,ShardingStateManager>()
+                .ReplaceService<IRelationalTransactionFactory,ShardingRelationalTransactionFactory>();
         }
+#pragma warning restore EF1001
 
         public static DbContextOptionsBuilder UseShardingMigrator(
             this DbContextOptionsBuilder optionsBuilder)
@@ -247,12 +255,10 @@ namespace ShardingCore
             ((IDbContextOptionsBuilderInfrastructure)optionsBuilder).AddOrUpdateExtension(shardingWrapExtension);
             return optionsBuilder;
         }
-
         private static ShardingWrapOptionsExtension CreateOrGetShardingWrapExtension(
             this DbContextOptionsBuilder optionsBuilder)
             => optionsBuilder.Options.FindExtension<ShardingWrapOptionsExtension>() ??
                new ShardingWrapOptionsExtension();
-
         private static ShardingOptionsExtension CreateOrGetShardingOptionsExtension(
             this DbContextOptionsBuilder optionsBuilder, IShardingRuntimeContext shardingRuntimeContext) =>
             optionsBuilder.Options.FindExtension<ShardingOptionsExtension>() ??

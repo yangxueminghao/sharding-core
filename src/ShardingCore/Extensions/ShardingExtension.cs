@@ -64,10 +64,10 @@ namespace ShardingCore.Extensions
             {
                 return null;
             }
-#if !NETCOREAPP2_0
+#if !EFCORE2
             return expression.Print();
 #endif
-#if NETCOREAPP2_0
+#if EFCORE2
                 return expression.ToString();
 #endif
         }
@@ -108,7 +108,7 @@ namespace ShardingCore.Extensions
                         new Dictionary<DbContext, IEnumerable<TEntity>>()
                         {
                             {
-                                shardingDbContext.CreateGenericDbContext(entitiesArray[0]),
+                                shardingDbContext.GetShardingExecutor().CreateGenericDbContext(entitiesArray[0]),
                                 entitiesArray
                             }
                         }

@@ -56,6 +56,8 @@ namespace ShardingCore.Test
                 })
                 .UseConfig(op =>
                 {
+                    op.AutoUseWriteConnectionStringAfterWriteDb = true;
+                    op.CacheModelLockConcurrencyLevel = Environment.ProcessorCount;
                     //op.UseEntityFrameworkCoreProxies = true;
                     //当无法获取路由时会返回默认值而不是报错
                     op.ThrowIfQueryRouteNotMatch = false;
@@ -81,14 +83,14 @@ namespace ShardingCore.Test
                     });
                     //添加默认数据源
                     op.AddDefaultDataSource("A",
-                        "Data Source=localhost;Initial Catalog=ShardingCoreDBA;Integrated Security=True;");
+                        "Data Source=localhost;Initial Catalog=ShardingCoreDBA;Integrated Security=True;TrustServerCertificate=True;");
                     //添加额外数据源
                     op.AddExtraDataSource(sp =>
                     {
                         return new Dictionary<string, string>()
                     {
-                        { "B", "Data Source=localhost;Initial Catalog=ShardingCoreDBB;Integrated Security=True;" },
-                        { "C", "Data Source=localhost;Initial Catalog=ShardingCoreDBC;Integrated Security=True;" },
+                        { "B", "Data Source=localhost;Initial Catalog=ShardingCoreDBB;Integrated Security=True;TrustServerCertificate=True;" },
+                        { "C", "Data Source=localhost;Initial Catalog=ShardingCoreDBC;Integrated Security=True;TrustServerCertificate=True;" },
                     };
                     });
                     //添加读写分离
@@ -99,13 +101,12 @@ namespace ShardingCore.Test
                         {
                             "A", new HashSet<string>()
                             {
-                                "Data Source=localhost;Initial Catalog=ShardingCoreDBB;Integrated Security=True;"
+                                "Data Source=localhost;Initial Catalog=ShardingCoreDBB;Integrated Security=True;TrustServerCertificate=True;"
                             }
                         }
                     };
                     }, ReadStrategyEnum.Loop, defaultEnable: false, readConnStringGetStrategy: ReadConnStringGetStrategyEnum.LatestEveryTime);
                 })
-                .ReplaceService<ITableEnsureManager,SqlServerTableEnsureManager>()
                 .AddShardingCore();
         }
 

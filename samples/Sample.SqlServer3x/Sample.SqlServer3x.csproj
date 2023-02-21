@@ -9,7 +9,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\ShardingCore\ShardingCore.csproj" />
+    <ProjectReference Include="..\..\src3\ShardingCore3\ShardingCore3.csproj" />
   </ItemGroup>
 
 

@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.Extensions.Caching.Memory;
 using Sample.MySql.DbContexts;
 using Sample.MySql.Domain.Entities;
 using Sample.MySql.multi;
@@ -8,10 +10,12 @@ using Sample.MySql.Shardings;
 using ShardingCore;
 using ShardingCore.Bootstrappers;
 using ShardingCore.Core;
+using ShardingCore.Core.ModelCacheLockerProviders;
 using ShardingCore.Core.RuntimeContexts;
 using ShardingCore.EFCores;
 using ShardingCore.Extensions;
 using ShardingCore.Helpers;
+using ShardingCore.Sharding.ParallelTables;
 using ShardingCore.Sharding.ReadWriteConfigurations;
 using ShardingCore.TableExists;
 using ShardingCore.TableExists.Abstractions;
@@ -54,72 +58,64 @@ namespace Sample.MySql
         public void ConfigureServices(IServiceCollection services)
         {
             // services.AddHostedService<AutoStart>();
-            services.AddControllers(); 
-            // services.AddShardingDbContext<ShardingDefaultDbContext, DefaultDbContext>(o => o.UseMySql(hostBuilderContext.Configuration.GetSection("MySql")["ConnectionString"],new MySqlServerVersion("5.7.15"))
-            //     ,op =>
-            //     {
-            //         op.EnsureCreatedWithOutShardingTable = true;
-            //         op.CreateShardingTableOnStart = true;
-            //         op.UseShardingOptionsBuilder((connection, builder) => builder.UseMySql(connection,new MySqlServerVersion("5.7.15")).UseLoggerFactory(efLogger),
-            //             (conStr,builder)=> builder.UseMySql(conStr,new MySqlServerVersion("5.7.15")).UseLoggerFactory(efLogger));
-            //         op.AddShardingTableRoute<SysUserModVirtualTableRoute>();
-            //         op.AddShardingTableRoute<SysUserSalaryVirtualTableRoute>();
-            //     });
-            // services.AddMultiShardingDbContext<OtherDbContext>()
-            //     .UseRouteConfig(op =>
-            //     {
-            //         op.AddShardingTableRoute<MyUserRoute>();
-            //     })
-            //     .UseConfig((sp,o) =>
-            //     {
-            //         o.ThrowIfQueryRouteNotMatch = false;
-            //         o.UseShardingQuery((conStr, builder) =>
-            //         {
-            //             builder.UseMySql(conStr, new MySqlServerVersion(new Version()))
-            //                 .UseLoggerFactory(efLogger)
-            //                 .EnableSensitiveDataLogging()
-            //                 .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
-            //         });
-            //         o.UseShardingTransaction((connection, builder) =>
-            //         {
-            //             builder
-            //                 .UseMySql(connection, new MySqlServerVersion(new Version()))
-            //                 .UseLoggerFactory(efLogger)
-            //                 .EnableSensitiveDataLogging()
-            //                 .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
-            //         });
-            //         o.UseShardingMigrationConfigure(b =>
-            //         {
-            //             b.ReplaceService<IMigrationsSqlGenerator, ShardingMySqlMigrationsSqlGenerator>();
-            //         });
-            //         o.AddDefaultDataSource("ds0",
-            //             "server=127.0.0.1;port=3306;database=dbdbdx;userid=root;password=root;");
-            //     }).ReplaceService<ITableEnsureManager, MySqlTableEnsureManager>().AddShardingCore();
+            services.AddControllers();
+            services.AddSingleton<IMemoryCache>(sp => new MemoryCache(new MemoryCacheOptions { SizeLimit = 102400 }));
+            //
+            // Action<IServiceProvider, DbContextOptionsBuilder> optionsBuilder = null;
+            // services.AddDbContext<DefaultShardingDbContext>(optionsBuilder);
+            // services.AddDbContext<DefaultShardingDbContext>((sp,builder) =>
+            // {
+            //     optionsBuilder(sp, builder);
+            // });
+            //
+            
+            
             services.AddShardingDbContext<DefaultShardingDbContext>()
                 .UseRouteConfig(o =>
                 {
-                    o.AddShardingTableRoute<SysUserLogByMonthRoute>();
+                    o.AddShardingTableRoute<DynamicTableRoute>();
+                    o.AddShardingTableRoute<SysUserLogByMonthRoute>(); 
                     o.AddShardingTableRoute<SysUserModVirtualTableRoute>();
                     o.AddShardingDataSourceRoute<SysUserModVirtualDataSourceRoute>();
-                }).UseConfig(o =>
+                    o.AddShardingTableRoute<TestModRoute>();
+                    o.AddShardingTableRoute<TestModItemRoute>();
+                    o.AddParallelTableGroupNode(new ParallelTableGroupNode(new List<ParallelTableComparerType>()
+                    {
+                        new ParallelTableComparerType(typeof(TestMod)),
+                        new ParallelTableComparerType(typeof(TestModItem)),
+                    }));
+                }).UseConfig((sp,o) =>
                 {
+                    var memoryCache = sp.ApplicationServiceProvider.GetRequiredService<IMemoryCache>();
+                    o.UseExecutorDbContextConfigure(b =>
+                    {
+                        b.UseMemoryCache(memoryCache);
+                    });
+                    o.UseEntityFrameworkCoreProxies = true;
+                    o.CacheModelLockConcurrencyLevel = 1024;
+                    o.CacheEntrySize = 1;
+                    o.CacheModelLockObjectSeconds = 10;
+                    o.CheckShardingKeyValueGenerated = false;
+                    var loggerFactory1= sp.GetService<ILoggerFactory>();
+                    var loggerFactory2 = sp.ApplicationServiceProvider.GetService<ILoggerFactory>();
                     // o.UseEntityFrameworkCoreProxies = true;
                     o.ThrowIfQueryRouteNotMatch = false; 
                     o.AutoUseWriteConnectionStringAfterWriteDb = true;
+
                     o.UseShardingQuery((conStr, builder) =>
                     {
                         builder.UseMySql(conStr, new MySqlServerVersion(new Version()))
                             .UseLoggerFactory(efLogger)
-                            .EnableSensitiveDataLogging()
-                            .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
+                        .EnableSensitiveDataLogging();
+                        //.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
                     });
                     o.UseShardingTransaction((connection, builder) =>
                     {
                         builder
                             .UseMySql(connection, new MySqlServerVersion(new Version()))
                             .UseLoggerFactory(efLogger)
-                            .EnableSensitiveDataLogging()
-                            .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
+                            .EnableSensitiveDataLogging();
+                            //.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
                     });
                     o.AddDefaultDataSource("ds0",
                         "server=192.168.192.129;port=3306;database=dbdbd0;userid=root;password=123456;");
@@ -132,7 +128,7 @@ namespace Sample.MySql
                     {
                         b.ReplaceService<IMigrationsSqlGenerator, ShardingMySqlMigrationsSqlGenerator>();
                     });
-                })
+                }).ReplaceService<IModelCacheLockerProvider,DicModelCacheLockerProvider>()
                 .AddShardingCore();
             // services.AddDbContext<DefaultShardingDbContext>(ShardingCoreExtension
             //     .UseMutliDefaultSharding<DefaultShardingDbContext>);

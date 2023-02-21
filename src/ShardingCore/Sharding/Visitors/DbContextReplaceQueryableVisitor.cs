@@ -5,6 +5,7 @@ using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.Query;
+using Microsoft.EntityFrameworkCore.Query.Internal;
 using ShardingCore.Core.Internal.Visitors;
 using ShardingCore.Exceptions;
 using ShardingCore.Extensions;
@@ -132,7 +133,7 @@ namespace ShardingCore.Core.Internal.Visitors
         }
     }
 
-#if NETCOREAPP2_0 || NETCOREAPP3_0 || NETSTANDARD2_0
+#if EFCORE2 || EFCORE3
     internal class DbContextReplaceQueryableVisitor : DbContextInnerMemberReferenceReplaceQueryableVisitor
     {
         private readonly DbContext _dbContext;
@@ -172,7 +173,7 @@ namespace ShardingCore.Core.Internal.Visitors
     }
 #endif
 
-#if NET5_0 || NETSTANDARD2_1 || NET6_0
+#if EFCORE5 || EFCORE6 ||EFCORE7
     internal class DbContextReplaceQueryableVisitor : DbContextInnerMemberReferenceReplaceQueryableVisitor
     {
         private readonly DbContext _dbContext;
@@ -190,18 +191,42 @@ namespace ShardingCore.Core.Internal.Visitors
                 var dbContextDependencies =
                     typeof(DbContext).GetTypePropertyValue(_dbContext, "DbContextDependencies") as
                         IDbContextDependencies;
+#if !EFCORE7
                 var targetIQ =
                     (IQueryable)((IDbSetCache)_dbContext).GetOrAddSet(dbContextDependencies.SetSource,
                         queryRootExpression.EntityType.ClrType);
+#endif
+#if EFCORE7
+
+                var targetIQ =
+                    (IQueryable)((IDbSetCache)_dbContext).GetOrAddSet(dbContextDependencies.SetSource,
+                        queryRootExpression.ElementType);
+#endif
 
                 var newQueryable = targetIQ.Provider.CreateQuery(targetIQ.Expression);
                 if (Source == null)
                     Source = newQueryable;
-                //如何替换ef5的set
-                var replaceQueryRoot = new ReplaceSingleQueryRootExpressionVisitor();
-                replaceQueryRoot.Visit(newQueryable.Expression);
                 RootIsVisit = true;
-                return base.VisitExtension(replaceQueryRoot.QueryRootExpression);
+                if (queryRootExpression is FromSqlQueryRootExpression fromSqlQueryRootExpression)
+                {
+#if !EFCORE7
+                    var sqlQueryRootExpression = new FromSqlQueryRootExpression(newQueryable.Provider as IAsyncQueryProvider,
+                        queryRootExpression.EntityType, fromSqlQueryRootExpression.Sql,
+                        fromSqlQueryRootExpression.Argument);
+#endif
+#if EFCORE7
+                    var sqlQueryRootExpression = new FromSqlQueryRootExpression(newQueryable.Provider as IAsyncQueryProvider,
+                        fromSqlQueryRootExpression.EntityType, fromSqlQueryRootExpression.Sql,
+                        fromSqlQueryRootExpression.Argument);
+#endif
+                    return base.VisitExtension(sqlQueryRootExpression);
+                }
+                else
+                {
+                    var replaceQueryRoot = new ReplaceSingleQueryRootExpressionVisitor();
+                    replaceQueryRoot.Visit(newQueryable.Expression);
+                    return base.VisitExtension(replaceQueryRoot.QueryRootExpression);
+                }
             }
 
             return base.VisitExtension(node);
@@ -225,4 +250,5 @@ namespace ShardingCore.Core.Internal.Visitors
         }
     }
 #endif
-}
+            }
+

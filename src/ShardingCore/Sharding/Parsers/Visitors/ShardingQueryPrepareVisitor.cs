@@ -23,9 +23,6 @@ namespace ShardingCore.Sharding.Parsers.Visitors
     /// Author: xjm
     /// Created: 2022/5/1 21:43:12
     /// Email: 326308290@qq.com
-#if !NETCOREAPP2_0 && !NETSTANDARD2_0 && !NETCOREAPP3_0 && !NETSTANDARD2_1 && !NET5_0 && !NET6_0
-    error
-#endif
     internal class ShardingQueryPrepareVisitor : ExpressionVisitor
     {
         private readonly IShardingDbContext _shardingDbContext;
@@ -45,7 +42,7 @@ namespace ShardingCore.Sharding.Parsers.Visitors
         public ShardingQueryPrepareVisitor(IShardingDbContext shardingDbContext)
         {
             _shardingDbContext = shardingDbContext;
-            _trackerManager =((DbContext)shardingDbContext).GetShardingRuntimeContext()
+            _trackerManager = ((DbContext)shardingDbContext).GetShardingRuntimeContext()
                 .GetTrackerManager();
         }
         public ShardingPrepareResult GetShardingPrepareResult()
@@ -57,7 +54,7 @@ namespace ShardingCore.Sharding.Parsers.Visitors
                 shardingQueryableAsSequenceOptions,
                 shardingEntities, isNoTracking, isIgnoreFilter);
         }
-#if NETCOREAPP2_0 || NETSTANDARD2_0 || NETCOREAPP3_0
+#if EFCORE2 || EFCORE3
         protected override Expression VisitConstant(ConstantExpression node)
         {
             if (node.Value is IQueryable queryable)
@@ -68,17 +65,22 @@ namespace ShardingCore.Sharding.Parsers.Visitors
             return base.VisitConstant(node);
         }
 #endif
-#if NET5_0 || NETSTANDARD2_1 || NET6_0
+#if EFCORE5 || EFCORE6 || EFCORE7
         protected override Expression VisitExtension(Expression node)
         {
             if (node is QueryRootExpression queryRootExpression)
             {
+#if EFCORE7
+                TryAddShardingEntities(queryRootExpression.ElementType, null);
+#else
                 TryAddShardingEntities(queryRootExpression.EntityType.ClrType, null);
+#endif
             }
             return base.VisitExtension(node);
         }
 #endif
-        private void TryAddShardingEntities(Type entityType, IQueryable queryable)
+
+                private void TryAddShardingEntities(Type entityType, IQueryable queryable)
         {
             if (!shardingEntities.ContainsKey(entityType))
             {
@@ -130,10 +132,14 @@ namespace ShardingCore.Sharding.Parsers.Visitors
                 case nameof(EntityFrameworkQueryableExtensions.AsNoTracking): isNoTracking = true; break;
                 case nameof(EntityFrameworkQueryableExtensions.AsTracking): isNoTracking = false; break;
                 case nameof(EntityFrameworkQueryableExtensions.IgnoreQueryFilters): isIgnoreFilter = true; break;
-                case nameof(EntityFrameworkQueryableExtensions.Include):
-                case nameof(EntityFrameworkQueryableExtensions.ThenInclude): DiscoverQueryEntities(node); break;
+                // case nameof(EntityFrameworkQueryableExtensions.Include):
+                // case nameof(EntityFrameworkQueryableExtensions.ThenInclude): DiscoverQueryEntities(node); break;
                 default:
                     {
+                        if (node.Method.ReturnType.IsMethodReturnTypeQueryableType() && node.Method.ReturnType.IsGenericType)
+                        {
+                            DiscoverQueryEntities(node);
+                        }
                         var customerExpression = DiscoverCustomerQueryEntities(node);
                         if (customerExpression != null)
                         {
@@ -199,6 +205,7 @@ namespace ShardingCore.Sharding.Parsers.Visitors
             for (var i = 0; i < genericArguments.Length; i++)
             {
                 var genericArgument = genericArguments[i];
+
                 if (typeof(IEnumerable).IsAssignableFrom(genericArgument))
                 {
                     var arguments = genericArgument.GetGenericArguments();

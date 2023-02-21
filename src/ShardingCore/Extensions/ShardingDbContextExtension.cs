@@ -11,14 +11,30 @@ using Microsoft.EntityFrameworkCore.Query.Internal;
 using ShardingCore.Core;
 using ShardingCore.Core.RuntimeContexts;
 using ShardingCore.Core.VirtualRoutes.TableRoutes.RouteTails.Abstractions;
-using ShardingCore.EFCores.OptionsExtensions;
+using ShardingCore.EFCores;
 using ShardingCore.Sharding;
 using ShardingCore.Sharding.Abstractions;
+using ShardingCore.Sharding.ShardingDbContextExecutors;
 
 namespace ShardingCore.Extensions
 {
     public static class ShardingDbContextExtension
     {
+        public static bool IsShellDbContext(this DbContext dbContext)
+        {
+            return dbContext.GetService<IDbContextOptions>().FindExtension<ShardingWrapOptionsExtension>()!=null;
+        }
+        public static IShardingDbContextExecutor CreateShardingDbContextExecutor<TDbContext>(
+            this TDbContext shellDbContext)
+        where TDbContext:DbContext,IShardingDbContext
+        {
+            if (shellDbContext.IsShellDbContext())
+            {
+                return new ShardingDbContextExecutor(shellDbContext);
+            }
+
+            return default;
+        }
         public static bool IsUseReadWriteSeparation(this IShardingDbContext shardingDbContext)
         {
             return shardingDbContext.GetShardingExecutor().GetVirtualDataSource().UseReadWriteSeparation;
@@ -39,7 +55,7 @@ namespace ShardingCore.Extensions
         /// <returns></returns>
         public static DbContext GetShareDbContext(this IShardingDbContext shardingDbContext,string dataSourceName,IRouteTail routeTail)
         {
-            return shardingDbContext.GetDbContext(dataSourceName, CreateDbContextStrategyEnum.ShareConnection, routeTail);
+            return shardingDbContext.GetShardingExecutor().CreateDbContext(CreateDbContextStrategyEnum.ShareConnection,dataSourceName, routeTail);
         }
         
         /// <summary>
@@ -51,7 +67,7 @@ namespace ShardingCore.Extensions
         /// <returns></returns>
         public static DbContext GetIndependentWriteDbContext(this IShardingDbContext shardingDbContext,string dataSourceName,IRouteTail routeTail)
         {
-            return shardingDbContext.GetDbContext(dataSourceName, CreateDbContextStrategyEnum.IndependentConnectionWrite, routeTail);
+            return shardingDbContext.GetShardingExecutor().CreateDbContext(CreateDbContextStrategyEnum.IndependentConnectionWrite,dataSourceName, routeTail);
         }
         /// <summary>
         /// 获取独立生命周期的读连接字符串的db context
@@ -62,7 +78,7 @@ namespace ShardingCore.Extensions
         /// <returns></returns>
         public static DbContext GetIndependentQueryDbContext(this IShardingDbContext shardingDbContext,string dataSourceName,IRouteTail routeTail)
         {
-            return shardingDbContext.GetDbContext(dataSourceName, CreateDbContextStrategyEnum.IndependentConnectionQuery, routeTail);
+            return shardingDbContext.GetShardingExecutor().CreateDbContext(CreateDbContextStrategyEnum.IndependentConnectionQuery,dataSourceName, routeTail);
         }
     }
 }

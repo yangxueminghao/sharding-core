@@ -18,11 +18,27 @@ namespace ShardingCore.Sharding.Abstractions
     * @Email: 326308290@qq.com
     */
     public interface IShardingDbContextExecutor : IShardingTransaction,IReadWriteSwitch,ICurrentDbContextDiscover,IDisposable
-#if !NETCOREAPP2_0
+#if !EFCORE2
         , IAsyncDisposable
 
 #endif
     {
+        /// <summary>
+        /// 使用对象创建db context的前执行
+        /// </summary>
+        event EventHandler<EntityCreateDbContextBeforeEventArgs> EntityCreateDbContextBefore;
+        /// <summary>
+        /// 使用对象创建db context的后执行
+        /// </summary>
+        event EventHandler<EntityCreateDbContextAfterEventArgs> EntityCreateDbContextAfter;
+        /// <summary>
+        /// 使用tail创建db context的前执行
+        /// </summary>
+        event EventHandler<CreateDbContextBeforeEventArgs> CreateDbContextBefore;
+        /// <summary>
+        /// 使用tail创建db context的后执行
+        /// </summary>
+        event EventHandler<CreateDbContextAfterEventArgs> CreateDbContextAfter;
         /// <summary>
         /// has multi db context
         /// </summary>
@@ -51,6 +67,8 @@ namespace ShardingCore.Sharding.Abstractions
             CancellationToken cancellationToken = new CancellationToken());
 
         int SaveChanges(bool acceptAllChangesOnSuccess);
+
+        DbContext GetShellDbContext();
 
     }
 }

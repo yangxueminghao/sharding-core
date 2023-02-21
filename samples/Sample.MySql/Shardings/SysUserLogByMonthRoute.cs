@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Sample.MySql.Domain.Entities;
 using ShardingCore.Core.EntityMetadatas;
@@ -18,6 +19,13 @@ namespace Sample.MySql.Shardings
         {
             _logger = logger;
         }
+
+        protected override List<string> CalcTailsOnStart()
+        {
+            var tails = base.CalcTailsOnStart();
+            return tails;
+        }
+
         public override DateTime GetBeginTime()
         {
             return new DateTime(2021, 1, 01);
@@ -33,16 +41,22 @@ namespace Sample.MySql.Shardings
             builder.ShardingProperty(o => o.Time);
         }
 
+        // protected override List<TableRouteUnit> AfterShardingRouteUnitFilter(DataSourceRouteResult dataSourceRouteResult, List<TableRouteUnit> shardingRouteUnits)
+        // {
+        //     if (shardingRouteUnits.Count > 10)
+        //     {
+        //         _logger.LogInformation("截断前:"+string.Join(",",shardingRouteUnits.Select(o=>o.Tail)));
+        //         //这边你要自己做顺序处理阶段
+        //         var result= shardingRouteUnits.OrderByDescending(o=>o.Tail).Take(10).ToList();
+        //         _logger.LogInformation("截断后:"+string.Join(",",result.Select(o=>o.Tail)));
+        //         return result;
+        //     }
+        //     return base.AfterShardingRouteUnitFilter(dataSourceRouteResult, shardingRouteUnits);
+        // }
+
         protected override List<TableRouteUnit> AfterShardingRouteUnitFilter(DataSourceRouteResult dataSourceRouteResult, List<TableRouteUnit> shardingRouteUnits)
         {
-            if (shardingRouteUnits.Count > 10)
-            {
-                _logger.LogInformation("截断前:"+string.Join(",",shardingRouteUnits.Select(o=>o.Tail)));
-                //这边你要自己做顺序处理阶段
-                var result= shardingRouteUnits.OrderByDescending(o=>o.Tail).Take(10).ToList();
-                _logger.LogInformation("截断后:"+string.Join(",",result.Select(o=>o.Tail)));
-                return result;
-            }
+            Console.WriteLine("AfterShardingRouteUnitFilter:"+shardingRouteUnits.Count);
             return base.AfterShardingRouteUnitFilter(dataSourceRouteResult, shardingRouteUnits);
         }
     }

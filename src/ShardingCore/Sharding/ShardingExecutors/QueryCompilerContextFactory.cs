@@ -9,6 +9,7 @@ using ShardingCore.Sharding.ShardingExecutors.QueryableCombines;
 using System;
 using System.Linq;
 using System.Linq.Expressions;
+using Microsoft.EntityFrameworkCore;
 using ShardingCore.Core;
 using ShardingCore.Extensions.InternalExtensions;
 
@@ -28,6 +29,8 @@ namespace ShardingCore.Sharding.ShardingExecutors
         private static readonly IQueryableCombine _constantQueryableCombine;
         private static readonly IQueryableCombine _selectQueryableCombine;
         private static readonly IQueryableCombine _whereQueryableCombine;
+        private static readonly IQueryableCombine _executeUpdateQueryableCombine;
+        private static readonly IQueryableCombine _executeDeleteQueryableCombine;
 
         static QueryCompilerContextFactory()
         {
@@ -36,6 +39,8 @@ namespace ShardingCore.Sharding.ShardingExecutors
             _constantQueryableCombine = new ConstantQueryableCombine();
             _selectQueryableCombine = new SelectQueryableCombine();
             _whereQueryableCombine = new WhereQueryableCombine();
+            _executeUpdateQueryableCombine = new ExecuteUpdateQueryableCombine();
+            _executeDeleteQueryableCombine = new ExecuteDeleteQueryableCombine();
         }
 
         public QueryCompilerContextFactory(IDataSourceRouteRuleEngineFactory dataSourceRouteRuleEngineFactory,ITableRouteRuleEngineFactory tableRouteRuleEngineFactory,ILogger<QueryCompilerContextFactory> logger)
@@ -114,6 +119,12 @@ namespace ShardingCore.Sharding.ShardingExecutors
                     case nameof(Queryable.LongCount):
                     case nameof(Queryable.Any):
                         return _whereQueryableCombine;
+#if EFCORE7
+                    case nameof(RelationalQueryableExtensions.ExecuteUpdate):
+                        return _executeUpdateQueryableCombine;
+                    case nameof(RelationalQueryableExtensions.ExecuteDelete):
+                        return _executeDeleteQueryableCombine;
+#endif
                     case nameof(Queryable.All):
                         return _allQueryableCombine;
                     case nameof(Queryable.Max):

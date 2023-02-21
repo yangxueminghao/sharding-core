@@ -1,14 +1,16 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFramework>netcoreapp2.2</TargetFramework>
+		<TargetFramework>netcoreapp3.1</TargetFramework>
 		<LangVersion>9.0</LangVersion>
 	</PropertyGroup>
+
+
 
 	<ItemGroup>
 		<PackageReference Include="Microsoft.AspNetCore.TestHost" Version="2.2.0" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="2.2.6" />
-		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.8.3" />
+		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.4.0" />
 		<PackageReference Include="xunit" Version="2.4.1" />
 		<PackageReference Include="Xunit.DependencyInjection" Version="7.1.0" />
 		<PackageReference Include="xunit.runner.visualstudio" Version="2.4.3">
@@ -18,7 +20,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <ProjectReference Include="..\..\src\ShardingCore\ShardingCore.csproj" />
+	  <ProjectReference Include="..\..\src2\ShardingCore2\ShardingCore2.csproj" />
 	</ItemGroup>
 
 </Project>

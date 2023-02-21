@@ -282,7 +282,7 @@ namespace ShardingCore.Test
         {
             _virtualDbContext.ReadWriteSeparationReadOnly();
             var connectionString1 = _connectionStringManager.GetConnectionString(_virtualDataSource.DefaultDataSourceName, true);
-            Assert.Equal(connectionString1, "Data Source=localhost;Initial Catalog=ShardingCoreDBA;Integrated Security=True;");
+            Assert.Equal(connectionString1, "Data Source=localhost;Initial Catalog=ShardingCoreDBA;Integrated Security=True;TrustServerCertificate=True;");
             _virtualDbContext.ReadWriteSeparationWriteOnly();
         }
         //[Fact]
@@ -412,7 +412,8 @@ namespace ShardingCore.Test
             var list1 = await queryable.ToListAsync();
             Assert.Equal(24, list1.Count());
             Assert.DoesNotContain(list1, o => o.Name != "name_300");
-
+            // await _virtualDbContext.Set<SysUserMod>().Where(o=>o.Age==1).ExecuteUpdateAsync(
+            //     s => s.SetProperty(b => b.Name, b => b.Name + " *Featured!*"));
             var queryable1 = (from u in _virtualDbContext.Set<SysUserMod>().Where(o => o.Id == "300")
                               join salary in _virtualDbContext.Set<SysUserSalary>().Where(o => o.DateOfMonth == 202005)
                                   on u.Id equals salary.UserId

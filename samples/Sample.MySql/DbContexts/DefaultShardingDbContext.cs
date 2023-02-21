@@ -2,10 +2,13 @@
 using System.Linq.Expressions;
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Sample.MySql.Domain.Entities;
 using Sample.MySql.Domain.Maps;
 using ShardingCore.Core.VirtualRoutes.TableRoutes.RouteTails.Abstractions;
+using ShardingCore.EFCores;
+using ShardingCore.Extensions;
 using ShardingCore.Sharding;
 using ShardingCore.Sharding.Abstractions;
 
@@ -13,6 +16,9 @@ namespace Sample.MySql.DbContexts
 {
     public class DefaultShardingDbContext : AbstractShardingDbContext, IShardingTableDbContext
     {
+        public DbSet<DynamicTable> DynamicTables { get; set; }
+        public DbSet<SysUserMod> SysUserMod { get; set; }
+
         public DefaultShardingDbContext(DbContextOptions<DefaultShardingDbContext> options) : base(options)
         {
             //切记不要在构造函数中使用会让模型提前创建的方法
@@ -20,11 +26,6 @@ namespace Sample.MySql.DbContexts
             //Database.SetCommandTimeout(30000);
         }
 
-        // protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-        // {
-        //     base.OnConfiguring(optionsBuilder);
-        //     optionsBuilder.UseLazyLoadingProxies();
-        // }
 
         private readonly MethodInfo? _configureGlobalFiltersMethodInfo =
             typeof(DefaultShardingDbContext).GetMethod(nameof(ConfigureGlobalFilters),
@@ -37,8 +38,10 @@ namespace Sample.MySql.DbContexts
             modelBuilder.ApplyConfiguration(new SysTestMap());
             modelBuilder.ApplyConfiguration(new SysUserLogByMonthMap());
 
-            modelBuilder.Entity<SysUserLogByMonth>().HasData(new SysUserLogByMonth() { Id = "1", Time = DateTime.Now });
-            modelBuilder.Entity<SysTest>().HasData(new SysTest() { Id = "1", UserId = "123" });
+            // modelBuilder.Entity<SysUserLogByMonth>().HasData(new SysUserLogByMonth() { Id = "1", Time = DateTime.Now });
+            // modelBuilder.Entity<SysTest>().HasData(new SysTest() { Id = "1", UserId = "123" });
+            // modelBuilder.Entity<TestMod>().ToTable(nameof(TestMod));
+            // modelBuilder.Entity<SysTest>().ToTable("xxx");
         }
 
 
